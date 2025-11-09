@@ -72,22 +72,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     { refreshInterval: state.isRealTimeEnabled ? 7000 : 0 },
   )
 
-  // Generate mock updates locally
+  // Generate real-time latency updates (with Globalping API fallback to mock)
   useEffect(() => {
     if (!state.isRealTimeEnabled) return
 
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       const samples: LatencySample[] = []
       const servers = state.servers
 
       if (servers.length > 1) {
-        for (let i = 0; i < Math.min(10, servers.length); i++) {
+        for (let i = 0; i < Math.min(5, servers.length); i++) { // Reduced frequency for real API
           const from = servers[Math.floor(Math.random() * servers.length)]
           const to = servers[Math.floor(Math.random() * servers.length)]
           if (from.id !== to.id) {
-            const sample = generateMockSample(from.id, to.id, 50 + Math.random() * 100)
-            addSample(sample)
-            samples.push(sample)
+            try {
+              // Try to get real latency data first
+              const { getRealLatencySample } = await import("@/lib/globalping")
+              const realSample = await getRealLatencySample(from, to)
+
+              if (realSample) {
+                addSample(realSample)
+                samples.push(realSample)
+              } else {
+                // Fallback to mock data
+                const mockSample = generateMockSample(from.id, to.id, 50 + Math.random() * 100)
+                addSample(mockSample)
+                samples.push(mockSample)
+              }
+            } catch (error) {
+              console.warn("Globalping API failed, using mock data:", error)
+              // Fallback to mock data on API error
+              const mockSample = generateMockSample(from.id, to.id, 50 + Math.random() * 100)
+              addSample(mockSample)
+              samples.push(mockSample)
+            }
           }
         }
       }
@@ -99,7 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           recentSamples: newSamples.slice(-500),
         }
       })
-    }, 7000)
+    }, 15000)
 
     return () => clearInterval(interval)
   }, [state.isRealTimeEnabled, state.servers])

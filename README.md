@@ -16,8 +16,9 @@ This application provides a comprehensive visualization of cryptocurrency exchan
 - **Atmospheric Effects**: Night sky background and atmospheric glow
 
 ### 📊 Real-time Analytics
-- **Mock Latency Generation**: Deterministic seeded random generation for reproducible testing
-- **Live Updates**: Polling-based updates every 5-10 seconds
+- **Globalping API Integration**: Real network latency measurements using Globalping API
+- **Mock Data Fallback**: Deterministic seeded random generation when API unavailable
+- **Live Updates**: Polling-based updates every 10-15 seconds
 - **Historical Charts**: Time-series visualization with min/max/avg statistics
 - **Statistics Dashboard**: Real-time display of active connections and update timestamps
 
@@ -270,29 +271,61 @@ Returns aggregated statistics for a server pair.
 
 ## Integration with Real Data
 
-To replace mock data with real latency measurements:
+The application now integrates with the **Globalping API** for real network latency measurements. The Globalping API provides:
 
-1. **Implement Data Ingestion**:
+- **Global Probe Network**: Thousands of probes worldwide for accurate measurements
+- **Real Ping Data**: Actual ICMP ping measurements between locations
+- **Free Tier**: No-cost access to basic ping measurements
+- **RESTful API**: Simple HTTP endpoints for measurement creation and retrieval
+
+### Current Implementation
+
+1. **Primary Data Source**: Globalping API for real latency measurements
+2. **Fallback System**: Mock data generation when API is unavailable
+3. **Smart Location Mapping**: Coordinate-to-country mapping for API requests
+4. **Error Handling**: Graceful degradation to mock data on API failures
+
+### API Usage
+
+The app automatically:
+- Creates ping measurements between randomly selected server pairs
+- Waits for measurement completion (with 30-second timeout)
+- Converts results to the internal `LatencySample` format
+- Falls back to mock data if API calls fail
+
+### Extending Real Data Integration
+
+To enhance the real data integration:
+
+1. **Add More Measurement Types**:
    ```typescript
-   // Add POST /api/latency/push endpoint
-   // Accept real latency samples from your pingers
+   // Support traceroute, DNS, HTTP measurements
+   const measurement = await createMeasurement({
+     type: "traceroute",
+     target: "example.com",
+     locations: [{ country: "US" }]
+   })
    ```
 
-2. **Replace Mock Generation**:
+2. **Custom Probe Selection**:
    ```typescript
-   // In AppProvider.tsx, replace generateMockSample()
-   // with calls to your real data source
+   // Target specific cities or ASNs
+   locations: [{
+     city: "New York",
+     asn: 7018  // AT&T
+   }]
    ```
 
-3. **Add Authentication**:
-   ```typescript
-   // Secure API endpoints for production use
-   ```
-
-4. **Configure Real-time Updates**:
+3. **WebSocket Real-time Updates**:
    ```typescript
    // Replace polling with WebSocket connections
-   // Update NEXT_PUBLIC_WS_URL in .env.local
+   const ws = new WebSocket('wss://api.globalping.io/v1/ws')
+   ```
+
+4. **Authentication for Higher Limits**:
+   ```typescript
+   // Add API key for increased rate limits
+   headers: { 'Authorization': `Bearer ${API_KEY}` }
    ```
 
 ## Contributing
